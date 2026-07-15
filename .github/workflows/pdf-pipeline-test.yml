@@ -1,0 +1,35 @@
+# corpus#12 受け入れテスト: Actions 上で 3点セット生成 + OCR フォールバック動作確認。
+# 手動起動のみ(定期取得は #8 の workflow が担う)。成果物は artifact(コミットしない)。
+name: pdf-pipeline-test
+on:
+  workflow_dispatch:
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 変換ツール導入(poppler + tesseract jpn)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q poppler-utils tesseract-ocr tesseract-ocr-jpn
+      - name: 手引き(一般用)で 3点セット生成(テキスト層あり経路)
+        run: |
+          python3 scripts/fetch_pdf.py \
+            "https://www.nta.go.jp/publication/pamph/shohi_kojin/r06/pdf/01-dl.pdf" \
+            out/tebiki_r07_ippan
+      - name: OCR フォールバック動作確認(画像頁のみの PDF を分離して投入)
+        run: |
+          LOW=$(python3 -c "import json; print(json.load(open('out/tebiki_r07_ippan.meta.json'))['low_text_pages'][0])")
+          pdfseparate -f $LOW -l $LOW out/tebiki_r07_ippan.pdf out/scan_sample.pdf
+          python3 scripts/fetch_pdf.py out/scan_sample.pdf out/scan_sample_ocr
+          python3 - << 'EOF'
+          import json
+          m = json.load(open("out/scan_sample_ocr.meta.json"))
+          assert m.get("ocr") is True, f"OCR 経路が発火していない: {m}"
+          print("OCR fallback OK:", m["tool"], "| pages:", m["pages"])
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdf-pipeline-test
+          path: out/*.meta.json

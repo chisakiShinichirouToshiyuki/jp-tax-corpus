@@ -1,0 +1,59 @@
+# corpus#8: 定期差分パイプライン。
+#   1. kfs 裁決事例集の新号検知(既存最大号+1 の idx を照会)→ あれば fetch_kfs.py で取得+コミット
+#   2. 手引き PDF の sha256 変化監視 → 変化時のみ再取得+コミット
+#   3. keepalive: 実行ごとに ops/last_checked.json を更新+コミット
+#      (GitHub は 60 日無活動 repo の cron を止めるため、チェック記録自体を活動とする。
+#       チェック履歴は provenance にもなる)
+# 取得ポリシー(README)は fetch_kfs.py / fetch_pdf.py 側でコード強制(robots・1req/2s・UA)。
+name: kfs-diff
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 21 * * 4"  # 毎週金曜 06:00 JST(裁決事例集は四半期更新・低頻度で十分)
+
+permissions:
+  contents: write
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: git identity
+        run: |
+          git config user.name "tax-corpus-bot"
+          git config user.email "noreply@github.com"
+      - name: 変換ツール導入(poppler。fetch_pdf.py が使用)
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+      - name: 新号検知+取得(号単位コミットは fetch_kfs.py が実施)
+        run: |
+          LATEST=$(ls raw/*/rulings/*.json | sed 's|.*/||; s|\.json||' | sort -n | tail -1)
+          NEXT=$((LATEST + 1))
+          echo "既存最大号: $LATEST → No.$NEXT から探索"
+          python3 scripts/fetch_kfs.py $NEXT $((NEXT + 3))
+      - name: 手引き PDF の sha256 監視(変化時のみ更新)
+        run: |
+          set -e
+          while read -r url dest; do
+            OLD=$(python3 -c "import json;print(json.load(open('$dest.meta.json'))['sha256'])" 2>/dev/null || echo none)
+            python3 scripts/fetch_pdf.py "$url" "$dest"
+            NEW=$(python3 -c "import json;print(json.load(open('$dest.meta.json'))['sha256'])")
+            if [ "$OLD" = "$NEW" ]; then
+              git checkout -q -- "$dest.pdf" "$dest.txt" "$dest.meta.json" 2>/dev/null || true
+              echo "変化なし: $dest"
+            else
+              git add "$dest.pdf" "$dest.txt" "$dest.meta.json"
+              git commit -q -m "手引き更新検知: $dest (sha256 変化) — corpus#8" || true
+              echo "更新: $dest"
+            fi
+          done < ops/watch_pdfs.txt
+      - name: keepalive(チェック記録の provenance コミット)
+        run: |
+          mkdir -p ops
+          date -u +"{\"checked_at\": \"%Y-%m-%dT%H:%M:%SZ\"}" > ops/last_checked.json
+          git add ops/last_checked.json
+          git commit -q -m "定期差分チェック実行記録(keepalive) — corpus#8" || true
+      - name: push(実行中の main 前進と競合したら rebase して再送)
+        run: |
+          git pull --rebase origin main
+          git push

@@ -1,0 +1,19 @@
+{
+ "source_url": "https://www.nta.go.jp/publication/pamph/hojin/tebiki2022/pdf/0022007-103.pdf",
+ "fetched_at": "2026-07-14T12:46:57+0900",
+ "sha256": "920bdd133502133e86e1be2b44cb1144134403ddd57a712d703d055e1da7a6d8",
+ "authority_note": "数値の正本はPDF原本。txtは検索・参照用advisory(corpus#12)",
+ "tool": "pdftotext -layout (pdftotext version 25.06.0)",
+ "pages": 3,
+ "chars_per_page": [
+  97,
+  17,
+  36
+ ],
+ "low_text_pages": [
+  1,
+  2,
+  3
+ ],
+ "ocr_needed": true
+}

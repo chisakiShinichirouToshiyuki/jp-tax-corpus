@@ -1,0 +1,15 @@
+{
+ "source_url": "https://www.nta.go.jp/publication/pamph/hojin/tebiki2022/pdf/0022011-106.pdf",
+ "fetched_at": "2026-07-14T12:47:00+0900",
+ "sha256": "548868ea1130007d67cd90f0751d3dc2b3f24b42393b3830c50861e0af56da98",
+ "authority_note": "数値の正本はPDF原本。txtは検索・参照用advisory(corpus#12)",
+ "tool": "pdftotext -layout (pdftotext version 25.06.0)",
+ "pages": 1,
+ "chars_per_page": [
+  45
+ ],
+ "low_text_pages": [
+  1
+ ],
+ "ocr_needed": true
+}

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jp-tax-corpus 検索(静的 FTS5 デモ)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; }
+  input { width: 100%; font-size: 1.1rem; padding: .5rem; box-sizing: border-box; }
+  .hit { border-bottom: 1px solid #ddd; padding: .7rem 0; }
+  .meta { color: #666; font-size: .85rem; }
+  .snip { margin: .3rem 0 0; }
+  .snip b { background: #ffe58a; }
+  #status { color: #666; margin: .5rem 0; }
+</style>
+</head>
+<body>
+<h1>jp-tax-corpus 検索</h1>
+<p class="meta">裁決事例集・文書回答事例・手引き抽出テキストの横断全文検索。
+サーバーレス(GitHub Pages + sql.js-httpvfs による SQLite 範囲読み)。
+<b>正本は各 url の原本</b>(抽出テキストは advisory・corpus#12)。</p>
+<input id="q" placeholder="例: 仕入税額控除 / 簡易課税 / 2割特例" autofocus>
+<div id="status">DB 初期化中…</div>
+<div id="out"></div>
+<script type="module">
+const CDN = "https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.12/dist";
+const { createDbWorker } = await import(`${CDN}/index.js`);
+// cross-origin Worker 制約を blob URL で回避
+const workerBlob = URL.createObjectURL(await (await fetch(`${CDN}/sqlite.worker.js`)).blob());
+const status = document.getElementById("status");
+let worker;
+try {
+  worker = await createDbWorker(
+    [{ from: "jsonconfig", configUrl: "./config.json" }],
+    workerBlob, `${CDN}/sql-wasm.wasm`);
+  const n = await worker.db.query("SELECT count(*) AS n FROM docs");
+  status.textContent = `準備完了: ${n[0].n} 文書`;
+} catch (e) {
+  status.textContent = `初期化失敗: ${e}`;
+  throw e;
+}
+const out = document.getElementById("out");
+let seq = 0;
+document.getElementById("q").addEventListener("input", async (ev) => {
+  const q = ev.target.value.trim();
+  const my = ++seq;
+  if (q.length < 2) { out.innerHTML = ""; return; }
+  status.textContent = "検索中…";
+  try {
+    // detail=none のため snippet() は不可 → instr で前後 60 字を切り出す
+    const rows = await worker.db.query(
+      `SELECT kind, tax, title, url, date,
+              substr(body, max(1, instr(body, ?) - 60), 150) AS around
+       FROM docs WHERE docs MATCH ? LIMIT 20`,
+      [q, `"${q.replaceAll('"','')}"`]);
+    if (my !== seq) return;
+    const esc = s => s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+    const mark = s => esc(s).replaceAll(esc(q), `<b>${esc(q)}</b>`);
+    status.textContent = `${rows.length} 件${rows.length === 20 ? "(上限)" : ""}`;
+    out.innerHTML = rows.map(r => `
+      <div class="hit">
+        <a href="${r.url}" target="_blank" rel="noopener">${esc(r.title)}</a>
+        <div class="meta">${r.kind} / ${r.tax} ${r.date ? "/ " + r.date : ""}</div>
+        <p class="snip">…${mark(r.around || "")}…</p>
+      </div>`).join("");
+  } catch (e) { status.textContent = `検索エラー: ${e}`; }
+});
+</script>
+</body>
+</html>

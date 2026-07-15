@@ -1,0 +1,25 @@
+{
+ "source_url": "https://www.nta.go.jp/publication/pamph/hojin/aramashi2025/pdf/03.pdf",
+ "fetched_at": "2026-07-14T12:47:09+0900",
+ "sha256": "3ba72bcf84c82ad637cb48d45a5ab6e6f42042a7d90a4f37356b9ef299e0750b",
+ "authority_note": "数値の正本はPDF原本。txtは検索・参照用advisory(corpus#12)",
+ "tool": "pdftotext -layout (pdftotext version 25.06.0)",
+ "pages": 12,
+ "chars_per_page": [
+  42,
+  1069,
+  847,
+  708,
+  583,
+  782,
+  581,
+  996,
+  830,
+  823,
+  1101,
+  454
+ ],
+ "low_text_pages": [
+  1
+ ]
+}
